@@ -30,6 +30,10 @@ export function useSSE() {
     es.onmessage = (event) => {
       try {
         const boardEvent = JSON.parse(event.data) as BoardEvent;
+        if (boardEvent.type === 'board:resync') {
+          void loadBoard(true);
+          return;
+        }
         applySSEEvent(boardEvent);
       } catch (e) {
         console.error('SSE parse error', e);

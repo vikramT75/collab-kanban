@@ -177,16 +177,12 @@ export async function updateTask(
       const positions = neighborRes.rows.map((r: any) => Number(r.position));
       const newPos = updated.position;
 
-      const below = positions.filter((p: number) => p < newPos);
-      const above = positions.filter((p: number) => p > newPos);
+      // Trigger rebalance if gap to ANY neighbor (including exact duplicates) drops below 0.001
+      const tooCloseToNeighbor = positions.some(
+        (p: number) => Math.abs(p - newPos) < 0.001
+      );
 
-      const lowerNeighbor = below.length > 0 ? below[below.length - 1] : null;
-      const upperNeighbor = above.length > 0 ? above[0] : null;
-
-      const tooCloseToLower = lowerNeighbor !== null && Math.abs(newPos - lowerNeighbor) < 0.001;
-      const tooCloseToUpper = upperNeighbor !== null && Math.abs(upperNeighbor - newPos) < 0.001;
-
-      if (tooCloseToLower || tooCloseToUpper) {
+      if (tooCloseToNeighbor) {
         await rebalanceColumn(client, newStatus, originClientId);
         const finalRes = await client.query('SELECT * FROM tasks WHERE id = $1', [id]);
         finalTask = rowToTaskWithVersion(finalRes.rows[0]);
@@ -260,12 +256,17 @@ export async function rebalanceColumn(
     });
   }
 
-  const event = {
-    type: 'board:rebalanced',
-    eventId: randomUUID(),
-    originClientId,
-    status,
-    positions,
-  };
-  await client.query('SELECT pg_notify($1, $2)', ['kanban_events', JSON.stringify(event)]);
+  // Chunk notifications into batches of 80 so pg_notify stays well under Postgres's 8000-byte limit
+  const CHUNK_SIZE = 80;
+  for (let offset = 0; offset < positions.length; offset += CHUNK_SIZE) {
+    const chunk = positions.slice(offset, offset + CHUNK_SIZE);
+    const event = {
+      type: 'board:rebalanced',
+      eventId: randomUUID(),
+      originClientId,
+      status,
+      positions: chunk,
+    };
+    await client.query('SELECT pg_notify($1, $2)', ['kanban_events', JSON.stringify(event)]);
+  }
 }

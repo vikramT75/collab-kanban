@@ -184,7 +184,7 @@ export default function TaskDrawer() {
     setConflictFields([]);
   };
 
-  const displayTask = effectiveTask ?? serverTask;
+  const displayTask = effectiveTask ?? serverTask ?? prevServerTaskRef.current;
   const canSave = hasDirty && !wasDeleted && Boolean(form.title?.trim());
 
   return (

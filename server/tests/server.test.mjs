@@ -281,6 +281,115 @@ describe('Kanban Server API & Services', () => {
     assert.equal(notifications[0].taskId, taskId);
   });
 
+  it('PATCH /api/tasks/:id triggers rebalance on exact duplicate position (gap === 0)', async () => {
+    const taskId = '77777777-7777-4777-8777-777777777777';
+    const otherId = '88888888-8888-4888-8888-888888888888';
+    const now = new Date('2026-11-25T10:03:00.000Z');
+    const notifications = [];
+
+    const initialRow = {
+      id: taskId,
+      title: 'Card Dup',
+      description: '',
+      priority: 'low',
+      assignee: '',
+      status: 'Todo',
+      position: 2000,
+      version: 1,
+      updated_at: now,
+    };
+    const updatedRow = { ...initialRow, position: 1000, version: 2 };
+    const rebalancedRow = { ...updatedRow, position: 2000, version: 3 };
+    let rebalanced = false;
+
+    const fakeClient = {
+      query: async (sql, params) => {
+        if (sql.includes('FOR UPDATE')) return { rows: [initialRow] };
+        if (sql.startsWith('UPDATE tasks SET position = $1, updated_at') || sql.startsWith('UPDATE tasks SET position = $1, version = version + 1, updated_at')) {
+          return { rows: [updatedRow] };
+        }
+        if (sql.startsWith('SELECT position FROM tasks')) {
+          return { rows: [{ position: 1000 }] };
+        }
+        if (sql.startsWith('SELECT id FROM tasks WHERE status')) {
+          return { rows: [{ id: otherId }, { id: taskId }] };
+        }
+        if (sql.startsWith('UPDATE tasks SET position = $1, version = version + 1 WHERE id')) {
+          rebalanced = true;
+          return { rows: [{ id: params[1], version: params[1] === taskId ? 3 : 2 }] };
+        }
+        if (sql.startsWith('SELECT * FROM tasks WHERE id = $1')) {
+          return { rows: [rebalanced ? rebalancedRow : updatedRow] };
+        }
+        if (sql.startsWith('SELECT pg_notify')) {
+          notifications.push(JSON.parse(params[1]));
+          return { rows: [] };
+        }
+        return { rows: [] };
+      },
+      release: () => {},
+    };
+
+    restores.push(mock.method(pool, 'connect', async () => fakeClient));
+
+    const res = await fetch(`${baseUrl}/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'tab-dup' },
+      body: JSON.stringify({ position: 1000 }),
+    });
+
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.position, 2000);
+    assert.equal(notifications.some((n) => n.type === 'board:rebalanced'), true);
+  });
+
+  it('PATCH /api/tasks/:id moving status without position places task at bottom of target column', async () => {
+    const taskId = '99999999-9999-4999-8999-999999999999';
+    const now = new Date('2026-11-25T10:04:00.000Z');
+    let insertedParams = null;
+
+    const initialRow = {
+      id: taskId,
+      title: 'Move via dropdown',
+      description: '',
+      priority: 'medium',
+      assignee: 'Priya',
+      status: 'Backlog',
+      position: 1000,
+      version: 1,
+      updated_at: now,
+    };
+
+    const fakeClient = {
+      query: async (sql, params) => {
+        if (sql.includes('FOR UPDATE')) return { rows: [initialRow] };
+        if (sql.startsWith('SELECT COALESCE(MAX(position)')) return { rows: [{ max_pos: 3000 }] };
+        if (sql.startsWith('UPDATE tasks SET status')) {
+          insertedParams = params;
+          return { rows: [{ ...initialRow, status: 'Done', position: 4000, version: 2 }] };
+        }
+        if (sql.startsWith('SELECT position FROM tasks')) return { rows: [{ position: 3000 }] };
+        return { rows: [] };
+      },
+      release: () => {},
+    };
+
+    restores.push(mock.method(pool, 'connect', async () => fakeClient));
+
+    const res = await fetch(`${baseUrl}/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'tab-drop' },
+      body: JSON.stringify({ status: 'Done' }),
+    });
+
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.status, 'Done');
+    assert.equal(body.position, 4000);
+    assert.deepEqual(insertedParams.slice(0, 2), ['Done', 4000]);
+  });
+
   it('GET /api/events opens SSE stream with unbuffered headers and sends initial comment', async () => {
     const controller = new AbortController();
     const res = await fetch(`${baseUrl}/api/events`, { signal: controller.signal });

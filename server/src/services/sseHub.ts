@@ -1,16 +1,32 @@
 import { Response } from 'express';
-import { listenClient } from '../db/pool';
-import { BoardEvent } from '../../../shared/types';
+import pg from 'pg';
 import { randomUUID } from 'crypto';
+import { DATABASE_URL } from '../config/env';
+import { BoardEvent } from '../../../shared/types';
 
 const clients = new Map<string, Response>();
 let heartbeatTimer: NodeJS.Timeout | null = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
+let activeListener: pg.Client | null = null;
+let isShuttingDown = false;
 
-export async function startListening(): Promise<void> {
-  await listenClient.connect();
-  await listenClient.query('LISTEN kanban_events');
+async function connectListener(attempt = 0): Promise<void> {
+  if (isShuttingDown) return;
 
-  listenClient.on('notification', (msg) => {
+  const client = new pg.Client({ connectionString: DATABASE_URL });
+  activeListener = client;
+
+  const scheduleReconnect = () => {
+    if (isShuttingDown || reconnectTimer) return;
+    const delayMs = Math.min(1000 * 2 ** attempt, 10_000);
+    console.log(`Reconnecting PG LISTEN client in ${delayMs}ms...`);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      void connectListener(attempt + 1);
+    }, delayMs);
+  };
+
+  client.on('notification', (msg) => {
     if (!msg.payload) return;
     try {
       const event = JSON.parse(msg.payload) as BoardEvent;
@@ -20,9 +36,49 @@ export async function startListening(): Promise<void> {
     }
   });
 
-  listenClient.on('error', (err) => {
-    console.error('PG LISTEN client error:', err);
+  client.on('error', (err) => {
+    console.error('PG LISTEN client error:', err.message);
+    if (activeListener === client) {
+      activeListener = null;
+      client.end().catch(() => {});
+      scheduleReconnect();
+    }
   });
+
+  client.on('end', () => {
+    if (activeListener === client) {
+      activeListener = null;
+      scheduleReconnect();
+    }
+  });
+
+  try {
+    await client.connect();
+    await client.query('LISTEN kanban_events');
+    console.log('SSE hub listening on kanban_events');
+
+    // If this was a reconnect after a PG drop, tell connected tabs to silently resync
+    if (attempt > 0) {
+      broadcast({
+        type: 'board:resync',
+        eventId: randomUUID(),
+        originClientId: 'server',
+      });
+    }
+  } catch (err: any) {
+    console.error('Failed to start PG LISTEN client:', err?.message ?? err);
+    activeListener = null;
+    await client.end().catch(() => {});
+    if (attempt === 0) {
+      throw err;
+    }
+    scheduleReconnect();
+  }
+}
+
+export async function startListening(): Promise<void> {
+  isShuttingDown = false;
+  await connectListener(0);
 
   // 25s heartbeat to prevent NAT/proxy idle disconnects
   heartbeatTimer = setInterval(() => {
@@ -34,8 +90,6 @@ export async function startListening(): Promise<void> {
       }
     }
   }, 25_000);
-
-  console.log('SSE hub listening on kanban_events');
 }
 
 export function registerClient(res: Response): string {
@@ -51,7 +105,12 @@ export function unregisterClient(connectionId: string): void {
   console.log(`SSE client disconnected: ${connectionId}, total: ${clients.size}`);
 }
 
-export function closeAllClients(): void {
+export async function closeAllClients(): Promise<void> {
+  isShuttingDown = true;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
     heartbeatTimer = null;
@@ -64,6 +123,10 @@ export function closeAllClients(): void {
     }
   }
   clients.clear();
+  if (activeListener) {
+    await activeListener.end().catch(() => {});
+    activeListener = null;
+  }
 }
 
 function broadcast(event: BoardEvent): void {

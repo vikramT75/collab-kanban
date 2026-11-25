@@ -9,18 +9,18 @@ const UuidSchema = z.string().uuid();
 
 const CreateTaskSchema = z.object({
   title:       z.string().trim().min(1, 'Title cannot be empty').max(500),
-  description: z.string().default(''),
+  description: z.string().max(5000).default(''),
   priority:    z.enum(['low', 'medium', 'high']).default('medium'),
-  assignee:    z.string().trim().default(''),
+  assignee:    z.string().trim().max(200).default(''),
   status:      z.enum(['Backlog', 'Todo', 'In Progress', 'Done']).default('Backlog'),
   position:    z.number().finite().optional(),
 });
 
 const PatchTaskSchema = z.object({
   title:       z.string().trim().min(1, 'Title cannot be empty').max(500).optional(),
-  description: z.string().optional(),
+  description: z.string().max(5000).optional(),
   priority:    z.enum(['low', 'medium', 'high']).optional(),
-  assignee:    z.string().trim().optional(),
+  assignee:    z.string().trim().max(200).optional(),
   status:      z.enum(['Backlog', 'Todo', 'In Progress', 'Done']).optional(),
   position:    z.number().finite().optional(),
 });

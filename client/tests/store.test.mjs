@@ -61,9 +61,11 @@ describe('Client Positioning, Filters, Optimistic Rollback & Conflict Guardrails
     });
   });
 
-  it('computeNewPosition calculates empty, top, bottom, and midpoint positions', () => {
+  it('computeNewPosition calculates empty, top, non-positive top, bottom, and midpoint positions', () => {
     assert.equal(computeNewPosition(null, null), 1000);
     assert.equal(computeNewPosition(null, baseTask({ position: 1000 })), 500);
+    assert.equal(computeNewPosition(null, baseTask({ position: 0 })), -1000);
+    assert.equal(computeNewPosition(null, baseTask({ position: -500 })), -1500);
     assert.equal(computeNewPosition(baseTask({ position: 2000 }), null), 3000);
     assert.equal(
       computeNewPosition(baseTask({ position: 1000 }), baseTask({ position: 2000 })),

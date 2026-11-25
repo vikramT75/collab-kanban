@@ -4,7 +4,7 @@ import { PORT } from './config/env';
 import { runMigration } from './db/migrate';
 import { runSeed } from './db/seed';
 import { startListening, closeAllClients } from './services/sseHub';
-import { pool, listenClient } from './db/pool';
+import { pool } from './db/pool';
 import { createApp } from './app';
 
 const app = createApp();
@@ -38,11 +38,10 @@ async function bootstrap() {
 
 async function shutdown() {
   console.log('Shutting down gracefully...');
-  closeAllClients();
+  await closeAllClients();
   if (httpServer) {
     await new Promise<void>((resolve) => httpServer!.close(() => resolve()));
   }
-  await listenClient.end().catch(() => {});
   await pool.end().catch(() => {});
   process.exit(0);
 }
