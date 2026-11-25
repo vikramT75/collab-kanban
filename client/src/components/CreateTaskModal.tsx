@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBoardStore } from '../store/useBoardStore';
 import { ColumnStatus, Priority, COLUMN_ORDER } from '../types';
@@ -39,13 +40,13 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
     onClose();
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-slate-950/25 backdrop-blur-[1px] z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/80">
@@ -152,6 +153,7 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

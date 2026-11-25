@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Trash2,
@@ -192,7 +193,7 @@ export default function TaskDrawer() {
   const displayTask = effectiveTask ?? serverTask ?? prevServerTaskRef.current;
   const canSave = hasDirty && !wasDeleted && Boolean(form.title?.trim());
 
-  return (
+  return createPortal(
     <>
       <div
         className="fixed inset-0 bg-slate-950/20 backdrop-blur-[1px] z-40"
@@ -393,6 +394,7 @@ export default function TaskDrawer() {
           )}
         </div>
       </aside>
-    </>
+    </>,
+    document.body
   );
 }
