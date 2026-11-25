@@ -53,14 +53,9 @@ export default function Header() {
           <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-sm">
             <Kanban size={15} />
           </div>
-          <div className="flex items-baseline gap-2">
-            <h1 className="font-semibold text-slate-900 text-[15px] tracking-[-0.015em]">
-              Kanban Board
-            </h1>
-            <span className="hidden sm:inline text-xs text-slate-400 font-normal">
-              Workspace
-            </span>
-          </div>
+          <h1 className="font-semibold text-slate-900 text-[15px] tracking-[-0.015em]">
+            Kanban Board
+          </h1>
         </div>
 
         {/* Search + Filters */}
