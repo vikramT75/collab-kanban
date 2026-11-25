@@ -256,8 +256,8 @@ export default function Board() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
-        <div className="max-w-[1600px] mx-auto flex gap-4 items-stretch min-h-[calc(100vh-115px)]">
+      <main className="flex-1 px-4 lg:px-6 py-5 overflow-x-auto">
+        <div className="max-w-[1480px] mx-auto flex gap-4 items-stretch min-h-[calc(100vh-105px)]">
           {COLUMN_ORDER.map((status) => (
             <Column
               key={status}

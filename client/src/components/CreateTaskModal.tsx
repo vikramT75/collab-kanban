@@ -41,32 +41,32 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-slate-950/25 backdrop-blur-[1px] z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50/70">
-          <h2 className="font-semibold text-slate-800">New Task</h2>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/80">
+          <h2 className="font-semibold text-slate-900 text-sm">New Task</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200/60 transition-colors"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition-colors"
             aria-label="Close modal"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Title <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Title <span className="text-rose-500">*</span>
             </label>
             <input
-              className="mt-1.5 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full border border-slate-200/90 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Fix checkout validation bug"
@@ -76,11 +76,11 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-slate-600 mb-1">
               Description
             </label>
             <textarea
-              className="mt-1.5 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+              className="w-full border border-slate-200/90 rounded-lg px-3 py-2 text-[13px] text-slate-900 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 resize-none"
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -90,11 +90,11 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
                 Priority
               </label>
               <select
-                className="mt-1.5 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200/90 rounded-lg px-2.5 py-2 text-[13px] text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
               >
@@ -105,11 +105,11 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
                 Status
               </label>
               <select
-                className="mt-1.5 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200/90 rounded-lg px-2.5 py-2 text-[13px] text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ColumnStatus)}
               >
@@ -123,11 +123,11 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-slate-600 mb-1">
               Assignee
             </label>
             <input
-              className="mt-1.5 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full border border-slate-200/90 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
               placeholder="e.g. Rahul"
@@ -138,14 +138,14 @@ export default function CreateTaskModal({ defaultStatus = 'Backlog', onClose }: 
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex-1 px-4 py-2 text-[13px] font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim()}
-              className="flex-1 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              className="flex-1 px-4 py-2 text-[13px] font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-40 transition-colors"
             >
               Create Task
             </button>
