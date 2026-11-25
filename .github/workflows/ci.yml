@@ -193,11 +193,12 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          trap 'rm -f ~/.ssh/deploy_key' EXIT
 
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "${EC2_USER}@${EC2_HOST}" "bash -s" << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "${EC2_USER}@${EC2_HOST}" bash -s -- "$REPO_URL" << 'EOF'
           set -euo pipefail
-          APP_DIR="/home/ec2-user/kanban"
-          REPO_URL="https://github.com/vikramT75/collab-kanban.git"
+          REPO_URL="$1"
+          APP_DIR="$HOME/kanban"
 
           if ! command -v git >/dev/null 2>&1; then
             sudo dnf install -y git || sudo yum install -y git
@@ -237,5 +238,3 @@ jobs:
           $COMPOSE_CMD -f docker-compose.prod.yml logs --tail=50
           exit 1
           EOF
-
-          rm -f ~/.ssh/deploy_key
