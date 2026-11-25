@@ -171,3 +171,71 @@ jobs:
       - name: Tear down stack
         if: always()
         run: docker compose down -v
+
+  deploy:
+    name: Deploy to EC2 (Amazon Linux)
+    runs-on: ubuntu-latest
+    needs: [server, client, docker-smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy via SSH to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ec2-user' }}
+          REPO_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          if [ -z "$EC2_HOST" ] || [ -z "$EC2_SSH_KEY" ]; then
+            echo "Skipping deploy: EC2_HOST or EC2_SSH_KEY secret is not configured."
+            exit 0
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "${EC2_USER}@${EC2_HOST}" "bash -s" << 'EOF'
+          set -euo pipefail
+          APP_DIR="/home/ec2-user/kanban"
+          REPO_URL="https://github.com/vikramT75/collab-kanban.git"
+
+          if ! command -v git >/dev/null 2>&1; then
+            sudo dnf install -y git || sudo yum install -y git
+          fi
+
+          mkdir -p "$APP_DIR"
+          cd "$APP_DIR"
+
+          if [ ! -d ".git" ]; then
+            git init -b main
+            git remote add origin "$REPO_URL"
+          else
+            git remote set-url origin "$REPO_URL"
+          fi
+
+          git fetch origin main
+          git checkout -f -B main origin/main
+
+          if docker compose version >/dev/null 2>&1; then
+            COMPOSE_CMD="docker compose"
+          else
+            COMPOSE_CMD="docker-compose"
+          fi
+
+          $COMPOSE_CMD -f docker-compose.prod.yml up -d --build
+          docker image prune -f
+
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost/api/health >/dev/null 2>&1 || curl -skf https://localhost/api/health >/dev/null 2>&1; then
+              echo "Production health check passed."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Production health check failed after deploy."
+          $COMPOSE_CMD -f docker-compose.prod.yml logs --tail=50
+          exit 1
+          EOF
+
+          rm -f ~/.ssh/deploy_key
