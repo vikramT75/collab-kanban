@@ -4,7 +4,7 @@ export function chaosMiddleware(req: Request, res: Response, next: NextFunction)
   const simulateError = req.headers['x-simulate-error'] === 'true';
   const failureRate = parseFloat(process.env.FAILURE_RATE ?? '0');
   if (simulateError || (failureRate > 0 && Math.random() < failureRate)) {
-    res.status(503).json({ error: 'Simulated transient server error' });
+    res.status(503).json({ error: 'simulated server error' });
     return;
   }
   next();

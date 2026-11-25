@@ -88,7 +88,7 @@ describe('Kanban Server API & Services', () => {
     });
     assert.equal(res.status, 503);
     const body = await res.json();
-    assert.match(body.error, /Simulated/);
+    assert.equal(body.error, 'simulated server error');
   });
 
   it('POST /api/tasks creates task, sets X-Task-Version header, strips version from JSON, and calls pg_notify', async () => {
