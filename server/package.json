@@ -4,9 +4,11 @@
   "main": "dist/server/src/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "typecheck": "tsc --noEmit",
     "build": "tsc",
     "start": "node dist/server/src/index.js",
-    "test": "npm run build && node --test tests/server.test.mjs"
+    "test": "npm run build && node --test tests/server.test.mjs",
+    "test:integration": "npm run build && node --test tests/integration.postgres.test.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

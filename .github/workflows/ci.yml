@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server:
+    name: Server (Typecheck, Unit & Postgres Integration)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: kanban
+          POSTGRES_USER: kanban
+          POSTGRES_PASSWORD: testpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U kanban -d kanban"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: server
+        run: npm run typecheck
+
+      - name: Run unit tests (mocked DB)
+        working-directory: server
+        run: npm test
+
+      - name: Run PostgreSQL & SSE integration tests
+        working-directory: server
+        env:
+          DATABASE_URL: postgres://kanban:testpassword@localhost:5432/kanban
+          PORT: "4100"
+          FAILURE_RATE: "0"
+        run: npm run test:integration
+
+  client:
+    name: Client (Typecheck, Build & Store Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: client
+        run: npm run typecheck
+
+      - name: Build production bundle
+        working-directory: client
+        run: npm run build
+
+      - name: Run store & positioning tests
+        working-directory: client
+        run: npm test
+
+  docker-smoke:
+    name: Docker Compose Build & Smoke Test
+    runs-on: ubuntu-latest
+    needs: [server, client]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Compose configurations
+        env:
+          POSTGRES_PASSWORD: smokepassword
+          APP_DOMAIN: localhost
+        run: |
+          docker compose config -q
+          docker compose -f docker-compose.prod.yml config -q
+
+      - name: Build and boot local stack
+        env:
+          POSTGRES_PASSWORD: smokepassword
+        run: docker compose up -d --build
+
+      - name: Verify API health, seeded board, and SPA via Nginx proxy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health | grep -q '"db":"connected"'; then
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://localhost:3000/api/health
+          curl -sf http://localhost:3000/api/board | grep -q '"Backlog"'
+          curl -sf http://localhost:3000/ | grep -q '<div id="root">'
+
+      - name: Verify 503 chaos header and live SSE streaming through Nginx
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3000/api/tasks \
+            -H "Content-Type: application/json" \
+            -H "X-Simulate-Error: true" \
+            -d '{"title":"Chaos check"}')
+          test "$STATUS" = "503"
+
+          node -e '
+            (async () => {
+              const controller = new AbortController();
+              const sseRes = await fetch("http://localhost:3000/api/events", { signal: controller.signal });
+              if (sseRes.status !== 200) throw new Error("SSE HTTP " + sseRes.status);
+              const reader = sseRes.body.getReader();
+              const first = await reader.read();
+              const hello = new TextDecoder().decode(first.value);
+              if (!hello.includes(": connected")) throw new Error("Missing SSE connected comment: " + hello);
+
+              const createRes = await fetch("http://localhost:3000/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Client-Id": "smoke-ci" },
+                body: JSON.stringify({ title: "Docker Smoke Task", status: "Todo" })
+              });
+              if (createRes.status !== 201) throw new Error("Create HTTP " + createRes.status);
+              const created = await createRes.json();
+
+              const deadline = Date.now() + 5000;
+              let payload = "";
+              while (Date.now() < deadline) {
+                const next = await Promise.race([
+                  reader.read(),
+                  new Promise((_, rej) => setTimeout(() => rej(new Error("SSE timeout")), 5000))
+                ]);
+                if (next.done) break;
+                payload += new TextDecoder().decode(next.value);
+                if (payload.includes("task:created") && payload.includes(created.id)) {
+                  break;
+                }
+              }
+              if (!payload.includes("task:created") || !payload.includes(created.id)) {
+                throw new Error("Expected task:created in SSE stream, got: " + payload);
+              }
+              controller.abort();
+              console.log("Docker SSE smoke test passed for task", created.id);
+            })().catch((e) => { console.error(e); process.exit(1); });
+          '
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v

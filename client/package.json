@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc --noEmit",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "esbuild src/utils/positioning.ts src/store/useBoardStore.ts --bundle --platform=node --format=esm --packages=external --define:import.meta.env='{\"VITE_API_BASE\":\"\"}' --outdir=.test-dist && node --test tests/store.test.mjs && node -e \"require('fs').rmSync('.test-dist',{recursive:true,force:true})\""
