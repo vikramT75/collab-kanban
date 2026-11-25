@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.test-dist/
+.env
+*.log
+.DS_Store
+Kanban_Board_Assignment__.pdf
