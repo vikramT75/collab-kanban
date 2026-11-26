@@ -123,5 +123,5 @@ Four guardrails prevent real-time events from clobbering local work:
 **Antigravity** (powered by **Claude Sonnet 4.6** and **Gemini**) was used selectively during development:
 
 - **Frontend Implementation:** Built out most of the React and Tailwind CSS UI, including the Kanban board layout, `@dnd-kit` drag-and-drop wiring, task detail drawer interactions, and responsive styling.
-- **Backend Debugging:** Assisted with troubleshooting backend edge cases, including PostgreSQL `LISTEN`/`NOTIFY` reconnect handling, SSE event ordering around column rebalancing, and integration test fixes.
+- **Backend Debugging & Architecture Review:** Assisted with troubleshooting backend edge cases (PostgreSQL `LISTEN`/`NOTIFY` reconnect handling, SSE event ordering around column rebalancing, and integration test fixes), identifying architectural gaps or potential flaws early, and speeding up routine development tasks.
 - **Review & Verification:** All agent-assisted code and fixes were reviewed and verified manually.
